@@ -1,26 +1,151 @@
 @import "tailwindcss";
 
+/* ================================================
+   NOCTUA — Design Tokens (Tailwind v4 theme)
+   ================================================ */
+@theme {
+  /* Colors */
+  --color-noctua-negro: #0D0D0D;
+  --color-noctua-oscuro: #1A0A00;
+  --color-noctua-dorado: #C9A96E;
+  --color-noctua-dorado-claro: #E8C98A;
+  --color-noctua-vino: #6B1E2A;
+  --color-noctua-gris: #374151;
+  --color-noctua-cream: #F5F0E8;
+
+  /* Typography — overridden by next/font variables */
+  --font-display: Georgia, serif;
+  --font-body: system-ui, sans-serif;
+
+  /* Animations */
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-glow: glow 2s ease-in-out infinite alternate;
+  --animate-bounce-slow: bounce-slow 2s ease-in-out infinite;
+}
+
+/* ================================================
+   CSS Custom Properties
+   ================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --noctua-negro: #0D0D0D;
+  --noctua-oscuro: #1A0A00;
+  --noctua-dorado: #C9A96E;
+  --noctua-dorado-claro: #E8C98A;
+  --noctua-vino: #6B1E2A;
+  --noctua-gris: #374151;
+  --noctua-cream: #F5F0E8;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ================================================
+   Keyframes
+   ================================================ */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@keyframes glow {
+  from { box-shadow: 0 0 10px rgba(201, 169, 110, 0.25); }
+  to { box-shadow: 0 0 25px rgba(201, 169, 110, 0.5); }
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+/* ================================================
+   Base Styles
+   ================================================ */
+html {
+  scroll-behavior: smooth;
+  background-color: #0D0D0D;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #0D0D0D;
+  color: #F5F0E8;
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ================================================
+   Grain Texture Overlay
+   ================================================ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ================================================
+   Custom Scrollbar
+   ================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0D0D0D;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C9A96E;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #E8C98A;
+}
+
+/* ================================================
+   Text Selection
+   ================================================ */
+::selection {
+  background-color: rgba(201, 169, 110, 0.3);
+  color: #F5F0E8;
+}
+
+/* ================================================
+   Focus visible styles
+   ================================================ */
+:focus-visible {
+  outline: 2px solid #C9A96E;
+  outline-offset: 2px;
+}
+
+/* ================================================
+   Utility classes
+   ================================================ */
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+.font-body {
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.hero-title-size {
+  font-size: clamp(80px, 10vw, 140px);
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s ease-in-out infinite;
 }
