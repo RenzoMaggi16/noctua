@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/email'
 import { generarCodigoReserva } from '@/lib/generarCodigo'
 import { generarQRBase64 } from '@/lib/generarQR'
 import type { MesaEstado } from '@/types'
@@ -13,10 +13,6 @@ function crearSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
-}
-
-function crearResend() {
-  return new Resend(process.env.RESEND_API_KEY!)
 }
 
 // =============================================
@@ -230,8 +226,7 @@ export async function POST(req: NextRequest) {
       restaurante: 'NOCTUA',
     })
 
-    // --- PASO 5: Enviar email con Resend ---
-    const resend = crearResend()
+    // --- PASO 5: Enviar email con Nodemailer ---
     const htmlEmail = generarEmailHTML({
       nombre: nombre_cliente,
       mesaNumero,
@@ -242,8 +237,9 @@ export async function POST(req: NextRequest) {
       qrBase64,
     })
 
-    await resend.emails.send({
-      from: 'NOCTUA Restaurante <reservas@tudominio.com>',
+    // El envío de email es asíncrono y no bloqueamos la respuesta exitosa de la reserva
+    // aunque aquí lo esperamos con await, el catch dentro de sendEmail evita que rompa el flujo
+    await sendEmail({
       to: email_cliente,
       subject: `Tu reserva en NOCTUA — ${codigo}`,
       html: htmlEmail,
