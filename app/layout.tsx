@@ -1,8 +1,11 @@
 import type { Metadata } from 'next'
-import { Cormorant_Garamond, Outfit } from 'next/font/google'
+import { Cormorant_Garamond, Outfit, Geist } from 'next/font/google'
 import './globals.css'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ['latin'],
@@ -35,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" className={`h-full ${cormorantGaramond.variable} ${outfit.variable}`}>
+    <html lang="es" className={cn("h-full", cormorantGaramond.variable, outfit.variable, "font-sans", geist.variable)}>
       <body className="min-h-full flex flex-col bg-noctua-negro antialiased font-body">
         <Navbar />
         <main className="flex-1">{children}</main>

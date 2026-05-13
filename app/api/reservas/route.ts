@@ -129,20 +129,13 @@ function generarEmailHTML(params: {
 }
 
 // =============================================
-// Detectar si es una mesa de demo (datos mock)
-// =============================================
-function esMesaMock(mesa_id: string): boolean {
-  return mesa_id.startsWith('pb-') || mesa_id.startsWith('pa-')
-}
-
-// =============================================
 // POST /api/reservas
 // =============================================
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    // ─── PASO 1: Validar campos requeridos ───
+    // --- PASO 1: Validar campos requeridos ---
     const camposRequeridos = [
       'mesa_id', 'nombre_cliente', 'email_cliente',
       'telefono', 'cantidad_personas', 'fecha', 'hora'
@@ -158,7 +151,7 @@ export async function POST(req: NextRequest) {
 
     const {
       mesa_id,
-      mesa_numero,
+      mesas_ids,
       nombre_cliente,
       email_cliente,
       telefono,
@@ -167,7 +160,7 @@ export async function POST(req: NextRequest) {
       hora,
     } = body as {
       mesa_id: string
-      mesa_numero?: number
+      mesas_ids?: string[]
       nombre_cliente: string
       email_cliente: string
       telefono: string
@@ -176,71 +169,57 @@ export async function POST(req: NextRequest) {
       hora: string
     }
 
-    // ─── PASO 2: Verificar disponibilidad de mesa ───
-    // Para mesas de demo (mock), saltamos la validación de Supabase
-    // y usamos el número de mesa enviado por el cliente.
-    let mesaNumero: number
+    // --- PASO 2: Verificar disponibilidad de mesa ---
+    const supabase = crearSupabase()
+    
+    const { data: mesaDb, error: mesaDbError } = await supabase
+      .from('mesas')
+      .select('id, numero, estado')
+      .eq('id', mesa_id)
+      .single()
 
-    if (esMesaMock(mesa_id)) {
-      // Modo demo — confiamos en los datos del cliente
-      mesaNumero = mesa_numero ?? parseInt(mesa_id.split('-').pop() ?? '0', 10)
-    } else {
-      // Modo producción — validar contra Supabase
-      const supabase = crearSupabase()
-      const { data: mesaData, error: mesaError } = await supabase
-        .from('mesas')
-        .select('estado, numero, capacidad')
-        .eq('id', mesa_id)
-        .single()
-
-      if (mesaError || !mesaData) {
-        return NextResponse.json(
-          { error: 'Mesa no encontrada.' },
-          { status: 404 }
-        )
-      }
-
-      const estadoMesa = mesaData.estado as MesaEstado
-      if (estadoMesa !== 'libre') {
-        return NextResponse.json(
-          { error: 'Esta mesa ya no está disponible. Por favor seleccioná otra.' },
-          { status: 409 }
-        )
-      }
-
-      mesaNumero = mesaData.numero as number
-
-      // Insertar en Supabase solo en modo producción
-      const { error: insertError } = await supabase
-        .from('reservas')
-        .insert({
-          mesa_id,
-          nombre_cliente,
-          email_cliente,
-          telefono,
-          cantidad_personas,
-          fecha,
-          hora,
-          codigo_reserva: generarCodigoReserva(),
-        })
-
-      if (insertError) {
-        return NextResponse.json(
-          { error: 'No se pudo registrar la reserva. Intentá de nuevo.' },
-          { status: 500 }
-        )
-      }
-
-      await supabase
-        .from('mesas')
-        .update({ estado: 'ocupada' as MesaEstado })
-        .eq('id', mesa_id)
+    if (mesaDbError || !mesaDb) {
+      return NextResponse.json(
+        { error: 'Mesa no encontrada en la base de datos.' },
+        { status: 404 }
+      )
     }
 
-    // ─── PASO 3: Generar código único ───
+    const mesaNumero = mesaDb.numero
+
+    // --- PASO 3: Generar código único ---
     const codigo = generarCodigoReserva()
 
-    // ─── PASO 4: Generar QR base64 ───
+    // Insertar reserva
+    // Si hay mesas combinadas, guardamos el array de IDs
+    const { error: insertError } = await supabase
+      .from('reservas')
+      .insert({
+        mesa_id,
+        mesas_ids: mesas_ids || [mesa_id],
+        nombre_cliente,
+        email_cliente,
+        telefono,
+        cantidad_personas,
+        fecha,
+        hora,
+        codigo_reserva: codigo,
+      })
+
+    if (insertError) {
+      console.error('Error al insertar reserva:', insertError)
+      return NextResponse.json(
+        { 
+          error: 'No se pudo registrar la reserva en la base de datos.',
+          details: insertError.message,
+          code: insertError.code,
+          hint: insertError.hint
+        },
+        { status: 500 }
+      )
+    }
+
+    // --- PASO 4: Generar QR base64 ---
     const qrBase64 = await generarQRBase64({
       codigo,
       nombre: nombre_cliente,
@@ -251,7 +230,7 @@ export async function POST(req: NextRequest) {
       restaurante: 'NOCTUA',
     })
 
-    // ─── PASO 5: Enviar email con Resend ───
+    // --- PASO 5: Enviar email con Resend ---
     const resend = crearResend()
     const htmlEmail = generarEmailHTML({
       nombre: nombre_cliente,
@@ -270,7 +249,7 @@ export async function POST(req: NextRequest) {
       html: htmlEmail,
     })
 
-    // ─── PASO 6: Respuesta exitosa ───
+    // --- PASO 6: Respuesta exitosa ---
     return NextResponse.json(
       {
         success: true,
@@ -285,5 +264,46 @@ export async function POST(req: NextRequest) {
       { error: `Error interno: ${mensaje}` },
       { status: 500 }
     )
+  }
+}
+
+// =============================================
+// DELETE /api/reservas
+// =============================================
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const codigo = searchParams.get('codigo')
+
+    if (!codigo) {
+      return NextResponse.json({ error: 'Código de reserva requerido' }, { status: 400 })
+    }
+
+    const supabase = crearSupabase()
+
+    // 1. Obtener las mesas asociadas antes de borrar
+    const { data: reserva, error: fetchError } = await supabase
+      .from('reservas')
+      .select('mesa_id, mesas_ids')
+      .eq('codigo_reserva', codigo)
+      .single()
+
+    if (fetchError || !reserva) {
+      return NextResponse.json({ error: 'Reserva no encontrada' }, { status: 404 })
+    }
+
+    // 2. Borrar la reserva
+    const { error: deleteError } = await supabase
+      .from('reservas')
+      .delete()
+      .eq('codigo_reserva', codigo)
+
+    if (deleteError) {
+      return NextResponse.json({ error: 'No se pudo cancelar la reserva' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, mensaje: 'Reserva cancelada correctamente' })
+  } catch (err) {
+    return NextResponse.json({ error: 'Error al procesar la cancelación' }, { status: 500 })
   }
 }

@@ -13,13 +13,15 @@ interface FormularioReservaProps {
   onActualizar: <K extends keyof EstadoReservaForm>(campo: K, valor: EstadoReservaForm[K]) => void
   onDeseleccionarMesa: () => void
   onResetear: () => void
+  mesasCombinadas?: string[]
 }
 
-const HORARIOS = Array.from({ length: 24 }, (_, i) => {
-  const hora = Math.floor(i / 2) + 12
-  const minutos = i % 2 === 0 ? '00' : '30'
-  return `${hora.toString().padStart(2, '0')}:${minutos}`
-}).filter((h) => h >= '12:00' && h <= '23:30')
+const HORARIOS = [
+  '12:00',
+  '15:00',
+  '18:00',
+  '21:00'
+]
 
 type PanelEstado = 'formulario' | 'confirmado'
 
@@ -28,12 +30,14 @@ export function FormularioReserva({
   onActualizar,
   onDeseleccionarMesa,
   onResetear,
+  mesasCombinadas = [],
 }: FormularioReservaProps) {
   const [panelEstado, setPanelEstado] = useState<PanelEstado>('formulario')
   const [modalAbierto, setModalAbierto] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [codigoConfirmado, setCodigoConfirmado] = useState('')
   const [errorServidor, setErrorServidor] = useState<string | null>(null)
+  const [cancelando, setCancelando] = useState(false)
 
   const validacion = useMemo(() => validarFormulario(estado), [estado])
   const esValido = formularioEsValido(validacion)
@@ -53,6 +57,7 @@ export function FormularioReserva({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mesa_id: estado.mesaSeleccionada?.id,
+          mesas_ids: mesasCombinadas.length > 0 ? mesasCombinadas : [estado.mesaSeleccionada?.id],
           mesa_numero: estado.mesaSeleccionada?.numero,
           nombre_cliente: estado.nombre.trim(),
           email_cliente: estado.email.trim(),
@@ -91,6 +96,28 @@ export function FormularioReserva({
     setErrorServidor(null)
   }
 
+  const cancelarReserva = async () => {
+    if (!codigoConfirmado) return
+    
+    setCancelando(true)
+    try {
+      const res = await fetch(`/api/reservas?codigo=${codigoConfirmado}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        throw new Error('No se pudo cancelar')
+      }
+
+      // Volver al formulario tras cancelar
+      handleOtraReserva()
+    } catch (err) {
+      alert('Error al cancelar la reserva. Por favor intenta de nuevo.')
+    } finally {
+      setCancelando(false)
+    }
+  }
+
   const inputClasses = (valido: boolean, tocado: boolean) =>
     `w-full bg-noctua-negro border ${
       tocado && !valido
@@ -101,7 +128,7 @@ export function FormularioReserva({
   return (
     <div className="flex flex-col h-full">
       <AnimatePresence mode="wait">
-        {/* ─── ESTADO: FORMULARIO ─── */}
+        {/* --- ESTADO: FORMULARIO --- */}
         {panelEstado === 'formulario' && (
           <motion.div
             key="formulario"
@@ -322,7 +349,7 @@ export function FormularioReserva({
           </motion.div>
         )}
 
-        {/* ─── ESTADO: CONFIRMADO ─── */}
+        {/* --- ESTADO: CONFIRMADO --- */}
         {panelEstado === 'confirmado' && (
           <motion.div
             key="confirmado"
@@ -403,15 +430,23 @@ export function FormularioReserva({
               Te enviamos el QR a tu email
             </motion.p>
 
-            <motion.div variants={fadeInUp} className="w-full">
-              <Boton
-                variante="secundario"
+            <motion.div variants={fadeInUp} className="flex flex-col gap-3 mt-auto pt-6">
+              <Boton 
+                variante="primario" 
                 onClick={handleOtraReserva}
                 className="w-full"
                 aria-label="Hacer otra reserva"
               >
                 Hacer otra reserva
               </Boton>
+              
+              <button
+                onClick={cancelarReserva}
+                disabled={cancelando}
+                className="text-noctua-vino hover:text-noctua-vino/80 text-xs font-body tracking-widest uppercase py-2 transition-colors disabled:opacity-50"
+              >
+                {cancelando ? 'Cancelando...' : 'Cancelar esta reserva'}
+              </button>
             </motion.div>
           </motion.div>
         )}

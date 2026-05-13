@@ -45,12 +45,14 @@ export default function ReservasPage() {
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10">
           {/* Mapa — 60% */}
-          <div className="lg:col-span-3 min-h-[560px]">
+          <div className="lg:col-span-3 min-h-[400px] lg:min-h-[560px]">
             <MapaRestaurante
               mesaSeleccionadaId={estado.mesaSeleccionada?.id ?? null}
               onSeleccionarMesa={seleccionarMesa}
               mesasCombinadas={mesasCombinadas}
               onCambiarCombinadas={setMesasCombinadas}
+              fecha={estado.fecha}
+              hora={estado.hora}
             />
           </div>
 
@@ -62,6 +64,7 @@ export default function ReservasPage() {
                 onActualizar={actualizarCampo}
                 onDeseleccionarMesa={handleDeseleccionar}
                 onResetear={resetear}
+                mesasCombinadas={mesasCombinadas}
               />
             </div>
           </div>

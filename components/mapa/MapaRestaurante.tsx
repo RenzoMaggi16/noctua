@@ -14,111 +14,62 @@ interface MapaRestauranteProps {
   onSeleccionarMesa: (mesa: MesaType) => void
   mesasCombinadas?: string[]
   onCambiarCombinadas?: (ids: string[]) => void
+  fecha?: string
+  hora?: string
 }
 
 // Dimensiones fijas del "lienzo" del plano
 const MAP_W = 640
 const MAP_H = 500
 
-/* ─── Zonas del restaurante ─────────────────────────────────── */
+/* --- Zonas del restaurante ----------------------------------- */
 const ZONAS_BAJA = [
-  { id: 'terraza',  label: '☀  Terraza exterior', x: 16,  y: 16,  w: 388, h: 108, border: 'rgba(201,169,110,0.22)', bg: 'rgba(201,169,110,0.04)' },
-  { id: 'salon',    label: '✦  Salón principal',  x: 16,  y: 140, w: 388, h: 200, border: 'rgba(245,240,232,0.08)', bg: 'rgba(245,240,232,0.02)' },
-  { id: 'sofas',    label: '⬡  Zona Sofás',       x: 420, y: 120, w: 204, h: 224, border: 'rgba(107,30,42,0.25)',  bg: 'rgba(107,30,42,0.07)'  },
-  { id: 'bar',      label: '◈  Bar',              x: 16,  y: 356, w: 296, h: 128, border: 'rgba(107,30,42,0.20)',  bg: 'rgba(107,30,42,0.05)'  },
-  { id: 'cocina',   label: '◈  Zona Cocina',      x: 328, y: 356, w: 296, h: 128, border: 'rgba(55,65,81,0.22)',   bg: 'rgba(55,65,81,0.07)'   },
+  { id: 'terraza',  label: '☀  Terraza exterior', x: 16,  y: 16,  w: 390, h: 110, border: 'rgba(201,169,110,0.22)', bg: 'rgba(201,169,110,0.04)' },
+  { id: 'salon',    label: '✦  Salón principal',  x: 16,  y: 142, w: 390, h: 200, border: 'rgba(245,240,232,0.08)', bg: 'rgba(245,240,232,0.02)' },
+  { id: 'sofas',    label: '⬡  Zona Sofás',       x: 422, y: 120, w: 202, h: 222, border: 'rgba(107,30,42,0.25)',  bg: 'rgba(107,30,42,0.07)'  },
+  { id: 'bar',      label: '◈  Bar',              x: 16,  y: 358, w: 298, h: 126, border: 'rgba(107,30,42,0.20)',  bg: 'rgba(107,30,42,0.05)'  },
+  { id: 'cocina',   label: '◈  Zona Cocina',      x: 326, y: 358, w: 298, h: 126, border: 'rgba(55,65,81,0.22)',   bg: 'rgba(55,65,81,0.07)'   },
 ]
 
 const ZONAS_ALTA = [
-  { id: 'balcon',  label: '⌂  Balcón / Vista',    x: 16,  y: 16,  w: 388, h: 108, border: 'rgba(201,169,110,0.22)', bg: 'rgba(201,169,110,0.05)' },
-  { id: 'salon',   label: '✦  Salón principal',   x: 16,  y: 140, w: 388, h: 210, border: 'rgba(245,240,232,0.08)', bg: 'rgba(245,240,232,0.02)' },
-  { id: 'vip',     label: '★  Sala VIP / Privada', x: 420, y: 140, w: 204, h: 210, border: 'rgba(201,169,110,0.30)', bg: 'rgba(201,169,110,0.05)' },
-  { id: 'lounge',  label: '◈  Lounge',            x: 16,  y: 366, w: 388, h: 118, border: 'rgba(107,30,42,0.20)',  bg: 'rgba(107,30,42,0.06)'  },
+  { id: 'balcon',  label: '⌂  Balcón / Vista',    x: 16,  y: 16,  w: 390, h: 110, border: 'rgba(201,169,110,0.22)', bg: 'rgba(201,169,110,0.05)' },
+  { id: 'salon',   label: '✦  Salón principal',   x: 16,  y: 142, w: 390, h: 210, border: 'rgba(245,240,232,0.08)', bg: 'rgba(245,240,232,0.02)' },
+  { id: 'vip',     label: '★  Sala VIP / Privada', x: 422, y: 142, w: 202, h: 210, border: 'rgba(201,169,110,0.30)', bg: 'rgba(201,169,110,0.05)' },
+  { id: 'lounge',  label: '◈  Lounge',            x: 16,  y: 368, w: 390, h: 116, border: 'rgba(107,30,42,0.20)',  bg: 'rgba(107,30,42,0.06)'  },
 ]
 
-/* ─── Etiquetas de referencia ────────────────────────────────── */
+/* --- Etiquetas de referencia ---------------------------------- */
 const REFS_BAJA = [
-  { label: 'Entrada principal', x: 280, y: 492 },
-  { label: '← Cocina',         x: 620, y: 418 },
-  { label: '→ Baños',          x: 28,  y: 418 },
+  { label: 'Entrada principal', x: 320, y: 492 },
+  { label: '← Cocina',         x: 620, y: 421 },
+  { label: '→ Baños',          x: 28,  y: 421 },
 ]
 const REFS_ALTA = [
-  { label: '↑ Escalera',     x: 280, y: 492 },
+  { label: '↑ Escalera',     x: 320, y: 492 },
   { label: '← Sala Privada', x: 618, y: 210 },
 ]
-
-/* ─── Posiciones de mesas ────────────────────────────────────── */
-const MESAS_BAJA: MesaType[] = [
-  // Terraza
-  { id: 'pb-t1', numero: 1,  capacidad: 2, pos_x: 80,  pos_y: 68,  estado: 'libre',             piso: 'baja', zona: 'terraza', forma: 'redonda'  },
-  { id: 'pb-t2', numero: 2,  capacidad: 2, pos_x: 158, pos_y: 68,  estado: 'ocupada',            piso: 'baja', zona: 'terraza', forma: 'redonda'  },
-  { id: 'pb-t3', numero: 3,  capacidad: 4, pos_x: 248, pos_y: 68,  estado: 'libre',             piso: 'baja', zona: 'terraza', forma: 'redonda'  },
-  { id: 'pb-t4', numero: 4,  capacidad: 2, pos_x: 334, pos_y: 68,  estado: 'libre',             piso: 'baja', zona: 'terraza', forma: 'redonda'  },
-  // Salón principal
-  { id: 'pb-p1', numero: 5,  capacidad: 4, pos_x: 78,  pos_y: 212, estado: 'libre',             piso: 'baja', zona: 'salon',   forma: 'cuadrada' },
-  { id: 'pb-p2', numero: 6,  capacidad: 4, pos_x: 178, pos_y: 212, estado: 'ocupada',            piso: 'baja', zona: 'salon',   forma: 'cuadrada' },
-  { id: 'pb-p3', numero: 7,  capacidad: 6, pos_x: 286, pos_y: 212, estado: 'libre',             piso: 'baja', zona: 'salon',   forma: 'cuadrada' },
-  { id: 'pb-p4', numero: 8,  capacidad: 4, pos_x: 78,  pos_y: 302, estado: 'esperando_pedido',  piso: 'baja', zona: 'salon',   forma: 'cuadrada' },
-  { id: 'pb-p5', numero: 9,  capacidad: 4, pos_x: 178, pos_y: 302, estado: 'libre',             piso: 'baja', zona: 'salon',   forma: 'cuadrada' },
-  { id: 'pb-p6', numero: 10, capacidad: 6, pos_x: 286, pos_y: 302, estado: 'libre',             piso: 'baja', zona: 'salon',   forma: 'cuadrada' },
-  // Sofás
-  { id: 'pb-s1', numero: 11, capacidad: 6, pos_x: 522, pos_y: 192, estado: 'libre',             piso: 'baja', zona: 'sofas',   forma: 'sofa'     },
-  { id: 'pb-s2', numero: 12, capacidad: 8, pos_x: 522, pos_y: 298, estado: 'ocupada',            piso: 'baja', zona: 'sofas',   forma: 'sofa'     },
-  // Bar
-  { id: 'pb-b1', numero: 13, capacidad: 2, pos_x: 72,  pos_y: 418, estado: 'libre',             piso: 'baja', zona: 'bar',     forma: 'redonda'  },
-  { id: 'pb-b2', numero: 14, capacidad: 2, pos_x: 148, pos_y: 418, estado: 'libre',             piso: 'baja', zona: 'bar',     forma: 'redonda'  },
-  { id: 'pb-b3', numero: 15, capacidad: 2, pos_x: 228, pos_y: 418, estado: 'ocupada',            piso: 'baja', zona: 'bar',     forma: 'redonda'  },
-  // Cocina
-  { id: 'pb-c1', numero: 16, capacidad: 4, pos_x: 402, pos_y: 418, estado: 'libre',             piso: 'baja', zona: 'cocina',  forma: 'cuadrada' },
-  { id: 'pb-c2', numero: 17, capacidad: 4, pos_x: 484, pos_y: 418, estado: 'cerrada',            piso: 'baja', zona: 'cocina',  forma: 'cuadrada' },
-  { id: 'pb-c3', numero: 18, capacidad: 4, pos_x: 566, pos_y: 418, estado: 'libre',             piso: 'baja', zona: 'cocina',  forma: 'cuadrada' },
-]
-
-const MESAS_ALTA: MesaType[] = [
-  // Balcón
-  { id: 'pa-v1', numero: 19, capacidad: 2, pos_x: 80,  pos_y: 68,  estado: 'libre',            piso: 'alta', zona: 'balcon',  forma: 'redonda'  },
-  { id: 'pa-v2', numero: 20, capacidad: 2, pos_x: 160, pos_y: 68,  estado: 'libre',            piso: 'alta', zona: 'balcon',  forma: 'redonda'  },
-  { id: 'pa-v3', numero: 21, capacidad: 4, pos_x: 252, pos_y: 68,  estado: 'ocupada',           piso: 'alta', zona: 'balcon',  forma: 'redonda'  },
-  { id: 'pa-v4', numero: 22, capacidad: 4, pos_x: 340, pos_y: 68,  estado: 'libre',            piso: 'alta', zona: 'balcon',  forma: 'redonda'  },
-  // Salón
-  { id: 'pa-p1', numero: 23, capacidad: 4, pos_x: 80,  pos_y: 210, estado: 'libre',            piso: 'alta', zona: 'salon',   forma: 'cuadrada' },
-  { id: 'pa-p2', numero: 24, capacidad: 4, pos_x: 178, pos_y: 210, estado: 'ocupada',           piso: 'alta', zona: 'salon',   forma: 'cuadrada' },
-  { id: 'pa-p3', numero: 25, capacidad: 6, pos_x: 286, pos_y: 210, estado: 'libre',            piso: 'alta', zona: 'salon',   forma: 'cuadrada' },
-  { id: 'pa-p4', numero: 26, capacidad: 6, pos_x: 80,  pos_y: 310, estado: 'libre',            piso: 'alta', zona: 'salon',   forma: 'cuadrada' },
-  { id: 'pa-p5', numero: 27, capacidad: 4, pos_x: 178, pos_y: 310, estado: 'esperando_pedido', piso: 'alta', zona: 'salon',   forma: 'cuadrada' },
-  // VIP
-  { id: 'pa-vip1', numero: 28, capacidad: 8,  pos_x: 522, pos_y: 210, estado: 'libre',         piso: 'alta', zona: 'vip',     forma: 'sofa'     },
-  { id: 'pa-vip2', numero: 29, capacidad: 10, pos_x: 522, pos_y: 306, estado: 'cerrada',        piso: 'alta', zona: 'vip',     forma: 'sofa'     },
-  // Lounge
-  { id: 'pa-l1', numero: 30, capacidad: 4, pos_x: 118, pos_y: 426, estado: 'libre',            piso: 'alta', zona: 'lounge',  forma: 'redonda'  },
-  { id: 'pa-l2', numero: 31, capacidad: 4, pos_x: 240, pos_y: 426, estado: 'libre',            piso: 'alta', zona: 'lounge',  forma: 'redonda'  },
-  { id: 'pa-l3', numero: 32, capacidad: 6, pos_x: 340, pos_y: 426, estado: 'libre',            piso: 'alta', zona: 'lounge',  forma: 'cuadrada' },
-]
-
-function getMesasDePiso(piso: PisoType): MesaType[] {
-  return piso === 'baja' ? MESAS_BAJA : MESAS_ALTA
-}
 
 export function MapaRestaurante({
   mesaSeleccionadaId,
   onSeleccionarMesa,
   mesasCombinadas = [],
   onCambiarCombinadas,
+  fecha,
+  hora,
 }: MapaRestauranteProps) {
   const [pisoActivo, setPisoActivo] = useState<PisoType>('baja')
-  const { cargando } = useMesas(pisoActivo)
-
-  // Todas las mesas vienen de los datos mock definidos aquí (no de useMesas)
-  // para que las posiciones y zonas sean siempre correctas.
-  const mesas = useMemo(() => getMesasDePiso(pisoActivo), [pisoActivo])
+  
+  // Fuente de verdad única: El hook useMesas que consulta Supabase
+  // Ahora pasamos fecha y hora para filtrar disponibilidad en tiempo real
+  const { mesas, cargando, error } = useMesas(pisoActivo, fecha, hora)
 
   const [modoUnir, setModoUnir] = useState(false)
   const [selUnir, setSelUnir] = useState<string[]>([])
 
-  const zonas = pisoActivo === 'baja' ? ZONAS_BAJA : ZONAS_ALTA
-  const refs  = pisoActivo === 'baja' ? REFS_BAJA  : REFS_ALTA
+  const zonas = useMemo(() => pisoActivo === 'baja' ? ZONAS_BAJA : ZONAS_ALTA, [pisoActivo])
+  const refs  = useMemo(() => pisoActivo === 'baja' ? REFS_BAJA  : REFS_ALTA, [pisoActivo])
 
-  /* ── Scale-to-fit usando ResizeObserver ─────────────────────── */
+  /* --- Scale-to-fit usando ResizeObserver ----------------------- */
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
 
@@ -126,13 +77,16 @@ export function MapaRestaurante({
     if (!wrapperRef.current) return
     const obs = new ResizeObserver(([entry]) => {
       const availableW = entry.contentRect.width
-      setScale(availableW < MAP_W ? availableW / MAP_W : 1)
+      // Calculamos la escala para que el mapa quepa en el ancho disponible
+      // Restamos un pequeño margen para el borde
+      const newScale = availableW < MAP_W ? (availableW - 2) / MAP_W : 1
+      setScale(newScale)
     })
     obs.observe(wrapperRef.current)
     return () => obs.disconnect()
   }, [])
 
-  /* ── Selección de mesas ─────────────────────────────────────── */
+  /* --- Selección de mesas --------------------------------------- */
   const handleMesaClick = (mesa: MesaType) => {
     if (modoUnir) {
       setSelUnir((prev) =>
@@ -165,7 +119,7 @@ export function MapaRestaurante({
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      {/* ── Header ──────────────────────────────────────────────── */}
+      {/* --- Header ------------------------------------------------ */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -215,11 +169,11 @@ export function MapaRestaurante({
         </div>
       </div>
 
-      {/* ── Contenedor del mapa ──────────────────────────────────── */}
+      {/* --- Contenedor del mapa ------------------------------------ */}
       <div
         ref={wrapperRef}
-        className="flex-1 relative bg-noctua-negro border border-noctua-dorado/10 overflow-hidden"
-        style={{ minHeight: Math.round(MAP_H * scale) + 2 }}
+        className="relative bg-noctua-negro border border-noctua-dorado/10 overflow-hidden"
+        style={{ height: Math.ceil(MAP_H * scale) + 2 }}
       >
         {/* Grid decorativo */}
         <div
@@ -229,7 +183,7 @@ export function MapaRestaurante({
               linear-gradient(rgba(201,169,110,0.7) 1px, transparent 1px),
               linear-gradient(90deg, rgba(201,169,110,0.7) 1px, transparent 1px)
             `,
-            backgroundSize: '40px 40px',
+            backgroundSize: `${40 * scale}px ${40 * scale}px`,
           }}
         />
 
@@ -245,30 +199,48 @@ export function MapaRestaurante({
 
         {/* Canvas escalado */}
         <AnimatePresence mode="wait">
-          <motion.div
-            key={pisoActivo}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            style={{
-              position: 'relative',
-              width: MAP_W,
-              height: MAP_H,
-              transformOrigin: 'top left',
-              transform: `scale(${scale})`,
-            }}
-          >
-            {/* Borde interior */}
-            <div
+          {error ? (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 flex items-center justify-center p-6 text-center"
+            >
+              <div className="flex flex-col items-center gap-3">
+                <p className="text-noctua-vino text-sm font-body">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="text-noctua-dorado text-xs underline font-body"
+                >
+                  Reintentar conexión
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key={pisoActivo}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.02 }}
+              transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+              className="absolute inset-0 origin-top-left"
               style={{
-                position: 'absolute',
-                inset: 8,
-                border: '1px solid rgba(201,169,110,0.12)',
-                borderRadius: 3,
-                pointerEvents: 'none',
+                width: MAP_W,
+                height: MAP_H,
+                transform: `scale(${scale})`,
               }}
-            />
+            >
+              {/* Borde interior */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 8,
+                  border: '1px solid rgba(201,169,110,0.12)',
+                  borderRadius: 3,
+                  pointerEvents: 'none',
+                }}
+              />
 
             {/* Zonas */}
             {zonas.map((z) => (
@@ -346,15 +318,16 @@ export function MapaRestaurante({
               />
             )}
           </motion.div>
-        </AnimatePresence>
-      </div>
+        )}
+      </AnimatePresence>
+    </div>
 
-      {/* ── Pie ─────────────────────────────────────────────────── */}
+      {/* --- Pie --------------------------------------------------- */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className={`w-2 h-2 rounded-full ${mesasLibres > 0 ? 'bg-green-500 animate-pulse' : 'bg-noctua-vino'}`} />
           <span className="text-noctua-cream/30 text-xs font-body tracking-wide">
-            {mesasLibres} mesas disponibles · Demo
+            {mesasLibres} mesas disponibles
           </span>
         </div>
         <span className="text-noctua-cream/20 text-[10px] font-body tracking-widest uppercase">

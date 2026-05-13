@@ -24,21 +24,22 @@ export interface Mesa {
   pos_y: number
   estado: MesaEstado
   piso: PisoType
-  zona?: ZonaMesa
-  forma?: FormaMesa
+  zona: ZonaMesa
+  forma: FormaMesa
+  creada_en?: string
 }
 
 export interface Reserva {
   id: string
-  mesa_id: string
   nombre_cliente: string
-  email_cliente: string
   telefono: string
   cantidad_personas: number
   fecha: string
   hora: string
-  codigo_reserva: string
   creada_en: string
+  mesa_id?: string
+  email_cliente?: string
+  codigo_reserva?: string
 }
 
 export interface EstadoReservaForm {
