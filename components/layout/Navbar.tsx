@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useAuth } from '@/providers/AuthProvider'
 
 const ENLACES = [
   { label: 'Inicio', href: '/#inicio' },
@@ -12,6 +14,9 @@ const ENLACES = [
 ]
 
 export function Navbar() {
+  const { user, signOut } = useAuth()
+  const pathname = usePathname()
+  const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
   const [menuAbierto, setMenuAbierto] = useState(false)
 
@@ -21,22 +26,42 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  // Cerrar menú mobile al cambiar de ruta
+  useEffect(() => {
+    setMenuAbierto(false)
+  }, [pathname])
+
   const cerrarMenu = () => setMenuAbierto(false)
 
   const handleEnlaceClick = (href: string) => {
     cerrarMenu()
-    if (href.startsWith('/#')) {
-      const id = href.replace('/#', '')
-      const el = document.getElementById(id)
-      if (el) el.scrollIntoView({ behavior: 'smooth' })
+
+    if (!href.startsWith('/#')) {
+      router.push(href)
+      return
+    }
+
+    const sectionId = href.replace('/#', '')
+
+    if (pathname === '/') {
+      // Ya estamos en la home — scroll suave al elemento
+      const el = document.getElementById(sectionId)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' })
+      }
+    } else {
+      // En otra página — navegamos a la home con el hash para que haga scroll al llegar
+      router.push(href)
     }
   }
+
+  const esHome = pathname === '/'
 
   return (
     <>
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          scrolled || menuAbierto
+          scrolled || menuAbierto || !esHome
             ? 'bg-noctua-negro/95 backdrop-blur-md border-b border-noctua-dorado/10'
             : 'bg-transparent'
         }`}
@@ -46,7 +71,10 @@ export function Navbar() {
           aria-label="Navegación principal"
         >
           {/* Logo */}
-          <Link href="/" className="font-display text-2xl font-semibold text-noctua-dorado tracking-[0.2em] hover:text-noctua-dorado-claro transition-colors">
+          <Link
+            href="/"
+            className="font-display text-2xl font-semibold text-noctua-dorado tracking-[0.2em] hover:text-noctua-dorado-claro transition-colors"
+          >
             NOCTUA
           </Link>
 
@@ -62,9 +90,35 @@ export function Navbar() {
                 {enlace.label}
               </button>
             ))}
+
+            {user ? (
+              <>
+                <Link
+                  href="/mis-reservas"
+                  className={`text-sm font-body transition-colors tracking-widest uppercase ${
+                    pathname === '/mis-reservas'
+                      ? 'text-noctua-dorado'
+                      : 'text-noctua-cream/70 hover:text-noctua-dorado'
+                  }`}
+                >
+                  Mis Reservas
+                </Link>
+                <button
+                  onClick={() => signOut()}
+                  className="text-sm font-body text-noctua-vino/80 hover:text-noctua-vino transition-colors tracking-widest uppercase"
+                >
+                  Cerrar sesión
+                </button>
+              </>
+            ) : null}
+
             <Link
               href="/reservas"
-              className="text-sm font-body text-noctua-negro bg-noctua-dorado hover:bg-noctua-dorado-claro transition-colors px-5 py-2 tracking-widest uppercase font-medium"
+              className={`text-sm font-body transition-colors px-5 py-2 tracking-widest uppercase font-medium ${
+                pathname === '/reservas'
+                  ? 'bg-noctua-dorado-claro text-noctua-negro'
+                  : 'text-noctua-negro bg-noctua-dorado hover:bg-noctua-dorado-claro'
+              }`}
               aria-label="Hacer una reserva"
             >
               Reservar
@@ -73,7 +127,7 @@ export function Navbar() {
 
           {/* Mobile hamburger */}
           <button
-            className="md:hidden flex flex-col gap-1.5 p-2"
+            className="md:hidden flex flex-col gap-1.5 p-2 z-50 relative"
             onClick={() => setMenuAbierto(!menuAbierto)}
             aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
             aria-expanded={menuAbierto}
@@ -121,10 +175,41 @@ export function Navbar() {
                 {enlace.label}
               </motion.button>
             ))}
+
+            {user ? (
+              <>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: ENLACES.length * 0.08 }}
+                >
+                  <Link
+                    href="/mis-reservas"
+                    onClick={cerrarMenu}
+                    className="font-display text-4xl text-noctua-cream hover:text-noctua-dorado transition-colors tracking-widest"
+                  >
+                    Mis Reservas
+                  </Link>
+                </motion.div>
+                <motion.button
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: (ENLACES.length + 1) * 0.08 }}
+                  onClick={() => {
+                    signOut()
+                    cerrarMenu()
+                  }}
+                  className="font-display text-4xl text-noctua-vino/80 hover:text-noctua-vino transition-colors tracking-widest"
+                >
+                  Cerrar sesión
+                </motion.button>
+              </>
+            ) : null}
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: ENLACES.length * 0.08 }}
+              transition={{ delay: (ENLACES.length + 2) * 0.08 }}
             >
               <Link
                 href="/reservas"

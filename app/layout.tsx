@@ -4,6 +4,7 @@ import './globals.css'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { cn } from "@/lib/utils";
+import { AuthProvider } from '@/providers/AuthProvider'
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -40,9 +41,11 @@ export default function RootLayout({
   return (
     <html lang="es" className={cn("h-full", cormorantGaramond.variable, outfit.variable, "font-sans", geist.variable)}>
       <body className="min-h-full flex flex-col bg-noctua-negro antialiased font-body">
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <AuthProvider>
+          <Navbar />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   )

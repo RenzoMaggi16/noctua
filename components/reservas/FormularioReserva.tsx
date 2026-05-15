@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/components/ui/Boton'
 import { ModalConfirmacion } from './ModalConfirmacion'
 import type { EstadoReservaForm, ResultadoReserva } from '@/types'
 import { validarFormulario, formularioEsValido, obtenerFechaHoy } from '@/lib/validaciones'
 import { fadeInUp, staggerContainer } from '@/styles/animaciones'
+import { useAuth } from '@/providers/AuthProvider'
+import { supabase } from '@/lib/supabase'
 
 interface FormularioReservaProps {
   estado: EstadoReservaForm
@@ -32,12 +34,28 @@ export function FormularioReserva({
   onResetear,
   mesasCombinadas = [],
 }: FormularioReservaProps) {
+  const { user, profile, refreshProfile } = useAuth()
   const [panelEstado, setPanelEstado] = useState<PanelEstado>('formulario')
   const [modalAbierto, setModalAbierto] = useState(false)
   const [cargando, setCargando] = useState(false)
-  const [codigoConfirmado, setCodigoConfirmado] = useState('')
-  const [errorServidor, setErrorServidor] = useState<string | null>(null)
   const [cancelando, setCancelando] = useState(false)
+  const [errorServidor, setErrorServidor] = useState<string | null>(null)
+  const [codigoConfirmado, setCodigoConfirmado] = useState('')
+
+  // Autocompletar datos del usuario si está autenticado
+  useEffect(() => {
+    if (user && !estado.email) {
+      onActualizar('email', user.email || '')
+    }
+    if (profile) {
+      if (profile.nombre && !estado.nombre) {
+        onActualizar('nombre', profile.nombre)
+      }
+      if (profile.telefono && !estado.telefono) {
+        onActualizar('telefono', profile.telefono)
+      }
+    }
+  }, [user, profile, estado.email, estado.nombre, estado.telefono, onActualizar])
 
   const validacion = useMemo(() => validarFormulario(estado), [estado])
   const esValido = formularioEsValido(validacion)
@@ -52,20 +70,89 @@ export function FormularioReserva({
     setCargando(true)
     setErrorServidor(null)
     try {
+      let currentUserId = user?.id
+
+      // 1. Manejo de Autenticación Invisible (si no hay sesión)
+      if (!currentUserId) {
+        const userPassword = 'Noctua' + estado.email.trim().split('@')[0] // Password determinista interna
+
+        // Intentamos login directo primero (por si ya existe)
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: estado.email.trim(),
+          password: userPassword,
+        })
+
+        if (signInError) {
+          // Si falla el login (porque no existe o por rate limit de auth), intentamos crear el perfil
+          // pero solo si el error NO es de rate limit. Si es rate limit, informamos al usuario.
+          if (signInError.message.includes('rate limit')) {
+            throw new Error('Demasiados intentos. Por favor, intentá de nuevo en unos minutos.')
+          }
+
+          // Intentamos el registro
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: estado.email.trim(),
+            password: userPassword,
+            options: {
+              data: {
+                nombre: estado.nombre.trim(),
+                telefono: estado.telefono.trim(),
+              }
+            }
+          })
+
+          if (signUpError) {
+            // Si el registro falla por rate limit, informamos.
+            if (signUpError.message.includes('rate limit')) {
+              throw new Error('Límite de seguridad alcanzado. Por favor, intentá de nuevo más tarde.')
+            }
+            // Si es otro error, lanzamos
+            throw signUpError
+          }
+          currentUserId = signUpData.user?.id
+        } else {
+          currentUserId = signInData.user?.id
+        }
+
+        // Si tenemos usuario pero no perfil, o queremos asegurar actualización
+        if (currentUserId) {
+          await supabase.from('profiles').upsert({
+            id: currentUserId,
+            nombre: estado.nombre.trim(),
+            telefono: estado.telefono.trim(),
+          })
+          await refreshProfile()
+        }
+      } else {
+        // Si ya está logueado, actualizamos su perfil si es necesario
+        await supabase.from('profiles').upsert({
+          id: currentUserId,
+          nombre: estado.nombre.trim(),
+          telefono: estado.telefono.trim(),
+        })
+        await refreshProfile()
+      }
+
+      // 2. Crear la reserva
+      const reservationPayload = {
+        mesa_id: estado.mesaSeleccionada?.id,
+        mesas_ids: mesasCombinadas.length > 0 ? mesasCombinadas : [estado.mesaSeleccionada?.id],
+        mesa_numero: estado.mesaSeleccionada?.numero,
+        nombre_cliente: estado.nombre.trim(),
+        email_cliente: estado.email.trim(),
+        telefono: estado.telefono.trim(),
+        cantidad_personas: estado.cantidadPersonas,
+        fecha: estado.fecha,
+        hora: estado.hora,
+        user_id: currentUserId,
+      }
+
+      console.log('📤 Enviando reserva:', reservationPayload)
+
       const res = await fetch('/api/reservas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mesa_id: estado.mesaSeleccionada?.id,
-          mesas_ids: mesasCombinadas.length > 0 ? mesasCombinadas : [estado.mesaSeleccionada?.id],
-          mesa_numero: estado.mesaSeleccionada?.numero,
-          nombre_cliente: estado.nombre.trim(),
-          email_cliente: estado.email.trim(),
-          telefono: estado.telefono.trim(),
-          cantidad_personas: estado.cantidadPersonas,
-          fecha: estado.fecha,
-          hora: estado.hora,
-        }),
+        body: JSON.stringify(reservationPayload),
       })
 
       const data: ResultadoReserva | { error: string } = await res.json()
@@ -81,8 +168,8 @@ export function FormularioReserva({
         setModalAbierto(false)
         setPanelEstado('confirmado')
       }
-    } catch {
-      setErrorServidor('Error de conexión. Verificá tu internet e intentá de nuevo.')
+    } catch (err: any) {
+      setErrorServidor(err.message || 'Error de conexión. Verificá tu internet e intentá de nuevo.')
       setModalAbierto(false)
     } finally {
       setCargando(false)
@@ -263,7 +350,12 @@ export function FormularioReserva({
                   id="nombre"
                   type="text"
                   value={estado.nombre}
-                  onChange={(e) => onActualizar('nombre', e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!/[0-9]/.test(val)) {
+                      onActualizar('nombre', val);
+                    }
+                  }}
                   className={inputClasses(validacion.nombre.valido, estado.nombre.length > 0)}
                   placeholder="Tu nombre completo"
                   autoComplete="name"

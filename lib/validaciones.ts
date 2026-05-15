@@ -11,7 +11,8 @@ export function validarEmail(email: string): boolean {
 
 export function validarTelefono(telefono: string): boolean {
   const soloDigitos = telefono.replace(/[\s\-+()]/g, '')
-  return soloDigitos.length >= 8
+  // Validamos que tenga entre 8 y 15 dígitos y que solo contenga números después de limpiar
+  return /^\d{8,15}$/.test(soloDigitos)
 }
 
 export function obtenerFechaHoy(): string {
@@ -56,16 +57,13 @@ export function validarFormulario(estado: EstadoReservaForm): ValidacionFormular
               : `Máximo ${mesaCapacidad} personas para esta mesa`,
         }
 
-  const nombre: CampoValidacion =
-    estado.nombre.trim().length >= 3
-      ? { valido: true, mensaje: '' }
-      : {
-          valido: false,
-          mensaje:
-            estado.nombre.trim().length === 0
-              ? 'Ingresá tu nombre completo'
-              : 'El nombre debe tener al menos 3 caracteres',
-        }
+  const nombre: CampoValidacion = (() => {
+    const nombreTrim = estado.nombre.trim()
+    if (nombreTrim.length === 0) return { valido: false, mensaje: 'Ingresá tu nombre completo' }
+    if (nombreTrim.length < 3) return { valido: false, mensaje: 'El nombre debe tener al menos 3 caracteres' }
+    if (/[0-9]/.test(nombreTrim)) return { valido: false, mensaje: 'El nombre no puede contener números' }
+    return { valido: true, mensaje: '' }
+  })()
 
   const email: CampoValidacion = validarEmail(estado.email)
     ? { valido: true, mensaje: '' }
@@ -79,7 +77,7 @@ export function validarFormulario(estado: EstadoReservaForm): ValidacionFormular
     : {
         valido: false,
         mensaje: estado.telefono
-          ? 'El teléfono debe tener al menos 8 dígitos'
+          ? 'Ingresá un número de teléfono válido (8-15 dígitos)'
           : 'Ingresá tu teléfono',
       }
 

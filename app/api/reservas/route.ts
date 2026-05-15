@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/email'
 import { generarCodigoReserva } from '@/lib/generarCodigo'
-import { generarQRBase64 } from '@/lib/generarQR'
+import { generarQRBuffer } from '@/lib/generarQR'
 import type { MesaEstado } from '@/types'
 
 // =============================================
@@ -17,6 +17,7 @@ function crearSupabase() {
 
 // =============================================
 // Template de email HTML (estilos inline)
+// El QR se referencia con cid:qr-reserva (adjunto CID, compatible con Gmail)
 // =============================================
 function generarEmailHTML(params: {
   nombre: string
@@ -25,9 +26,8 @@ function generarEmailHTML(params: {
   hora: string
   personas: number
   codigo: string
-  qrBase64: string
 }): string {
-  const { nombre, mesaNumero, fecha, hora, personas, codigo, qrBase64 } = params
+  const { nombre, mesaNumero, fecha, hora, personas, codigo } = params
 
   const formatearFecha = (f: string) => {
     try {
@@ -81,12 +81,12 @@ function generarEmailHTML(params: {
       <!-- Separador -->
       <div style="height:1px;background:linear-gradient(to right,transparent,#C9A96E,transparent);margin:32px 0"></div>
 
-      <!-- Sección QR -->
+      <!-- Sección QR — adjunto como CID para compatibilidad con Gmail -->
       <div style="text-align:center;padding:16px 0">
         <h2 style="color:#C9A96E;font-size:18px;margin:0 0 8px;font-family:Georgia,serif;font-weight:400">Tu código QR de reserva</h2>
         <p style="color:#7a6a5a;font-size:13px;margin:0 0 24px">Presentá este código al llegar al restaurante</p>
         <img
-          src="data:image/png;base64,${qrBase64}"
+          src="cid:qr-reserva"
           width="200"
           height="200"
           alt="Código QR de reserva NOCTUA ${codigo}"
@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
       cantidad_personas,
       fecha,
       hora,
+      user_id,
     } = body as {
       mesa_id: string
       mesas_ids?: string[]
@@ -163,6 +164,7 @@ export async function POST(req: NextRequest) {
       cantidad_personas: number
       fecha: string
       hora: string
+      user_id?: string
     }
 
     // --- PASO 2: Verificar disponibilidad de mesa ---
@@ -187,7 +189,6 @@ export async function POST(req: NextRequest) {
     const codigo = generarCodigoReserva()
 
     // Insertar reserva
-    // Si hay mesas combinadas, guardamos el array de IDs
     const { error: insertError } = await supabase
       .from('reservas')
       .insert({
@@ -200,6 +201,8 @@ export async function POST(req: NextRequest) {
         fecha,
         hora,
         codigo_reserva: codigo,
+        user_id,
+        estado: 'activa'
       })
 
     if (insertError) {
@@ -215,18 +218,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // --- PASO 4: Generar QR base64 ---
-    const qrBase64 = await generarQRBase64({
-      codigo,
-      nombre: nombre_cliente,
-      mesa: mesaNumero,
-      fecha,
-      hora,
-      personas: cantidad_personas,
-      restaurante: 'NOCTUA',
-    })
+    // --- PASO 4: Generar QR como Buffer PNG ---
+    let qrBuffer: Buffer | undefined
+    try {
+      qrBuffer = await generarQRBuffer({
+        codigo,
+        nombre: nombre_cliente,
+        mesa: mesaNumero,
+        fecha,
+        hora,
+        personas: cantidad_personas,
+        restaurante: 'NOCTUA',
+      })
+    } catch (qrError) {
+      console.error('⚠️ Error al generar QR (no bloquea la reserva):', qrError)
+    }
 
-    // --- PASO 5: Enviar email con Nodemailer ---
+    // --- PASO 5: Enviar email con Nodemailer (QR como adjunto CID) ---
     const htmlEmail = generarEmailHTML({
       nombre: nombre_cliente,
       mesaNumero,
@@ -234,23 +242,28 @@ export async function POST(req: NextRequest) {
       hora,
       personas: cantidad_personas,
       codigo,
-      qrBase64,
     })
 
-    // El envío de email es asíncrono y no bloqueamos la respuesta exitosa de la reserva
-    // aunque aquí lo esperamos con await, el catch dentro de sendEmail evita que rompa el flujo
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: email_cliente,
       subject: `Tu reserva en NOCTUA — ${codigo}`,
       html: htmlEmail,
+      qrBuffer,
     })
+
+    if (!emailResult.success) {
+      // Logueamos el error pero NO fallamos la reserva — ya está guardada en BD
+      console.error('⚠️ Email no enviado, pero la reserva fue creada correctamente.')
+    }
 
     // --- PASO 6: Respuesta exitosa ---
     return NextResponse.json(
       {
         success: true,
         codigo_reserva: codigo,
-        mensaje: 'Reserva confirmada. Revisá tu email.',
+        mensaje: emailResult.success
+          ? 'Reserva confirmada. Revisá tu email.'
+          : 'Reserva confirmada. Hubo un problema al enviar el email, pero tu reserva está registrada.',
       },
       { status: 201 }
     )
@@ -288,13 +301,16 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Reserva no encontrada' }, { status: 404 })
     }
 
-    // 2. Borrar la reserva
-    const { error: deleteError } = await supabase
+    // 2. Marcar como cancelada (soft delete)
+    const { error: updateError } = await supabase
       .from('reservas')
-      .delete()
+      .update({ 
+        estado: 'cancelada',
+        cancelada_en: new Date().toISOString()
+      })
       .eq('codigo_reserva', codigo)
 
-    if (deleteError) {
+    if (updateError) {
       return NextResponse.json({ error: 'No se pudo cancelar la reserva' }, { status: 500 })
     }
 

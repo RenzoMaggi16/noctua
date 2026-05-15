@@ -40,6 +40,9 @@ export interface Reserva {
   mesa_id?: string
   email_cliente?: string
   codigo_reserva?: string
+  user_id?: string
+  estado?: 'activa' | 'cancelada' | 'completada'
+  cancelada_en?: string
 }
 
 export interface EstadoReservaForm {
